@@ -70,8 +70,11 @@ if __name__ == '__main__':
     parser.add_argument('--prototxt', dest='prototxt', type=str, default='vgg/VGG_ILSVRC_16_pool5.prototxt', help='path to prototxt')
     parser.add_argument('--caffemodel', dest='caffemodel', type=str, default='vgg/VGG_ILSVRC_16_layers.caffemodel', help='path to model params')
     parser.add_argument('--out', dest='out', type=str, default='', help='path to save output')
+    parser.add_argument('--gpu', dest='gpu', type=int, default=1, help='gpu id to use')
     args = parser.parse_args()
 
+    caffe.set_device(args.gpu)
+    caffe.set_mode_gpu()
     net = caffe.Net(args.prototxt, args.caffemodel, caffe.TEST)
 
     if not os.path.exists(args.out):
