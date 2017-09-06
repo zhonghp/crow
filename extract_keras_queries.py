@@ -5,8 +5,11 @@ import glob
 import time
 import numpy as np
 from PIL import Image
-import caffe
-from extract_features import format_img_for_vgg, extract_raw_features
+
+import keras
+from keras.models import Model
+from keras.applications.vgg16 import VGG16
+from extract_keras_features import format_img_for_vgg, extract_raw_features
 
 
 def query_images(groundtruth_dir, image_dir, dataset, cropped=True):
@@ -50,18 +53,15 @@ if __name__ == '__main__':
     parser.add_argument('--images', dest='images', type=str, default='data/', help='directory containing image files')
     parser.add_argument('--groundtruth', dest='groundtruth', type=str, default='groundtruth/', help='directory containing groundtruth files')
     parser.add_argument('--out', dest='out', type=str, default='pool5_queries/', help='path to save output')
-
-    parser.add_argument('--layer', dest='layer', type=str, default='pool5', help='model layer to extract')
-    parser.add_argument('--prototxt', dest='prototxt', type=str, default='vgg/VGG_ILSVRC_16_pool5.prototxt', help='path to prototxt')
-    parser.add_argument('--caffemodel', dest='caffemodel', type=str, default='vgg/VGG_ILSVRC_16_layers.caffemodel', help='path to model params')
+    parser.add_argument('--gpu', dest='gpu', type=str, default='1', help='gpu id to use')
     args = parser.parse_args()
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+    model = VGG16(weights='imagenet', include_top=False)
 
     images_dir = os.path.join(args.dataset, args.images)
     groundtruth_dir = os.path.join(args.dataset, args.groundtruth)
     out_dir = os.path.join(args.dataset, args.out)
-
-    # Load networks
-    net = caffe.Net(args.prototxt, args.caffemodel, caffe.TEST)
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     beg = int(time.time())
     for img, name in query_images(groundtruth_dir, images_dir, args.dataset):
         d = format_img_for_vgg(img)
-        X = extract_raw_features(net, args.layer, d)
+        X = extract_raw_features(model, d)
 
         np.save(os.path.join(out_dir, '%s' % name), X)
     end = int(time.time())

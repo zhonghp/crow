@@ -113,7 +113,10 @@ def run_feature_processing_pipeline(features, d=128, whiten=True, copy=False, pa
     # Whiten and reduce dimension
     if params:
         pca = params['pca']
-        features = pca.transform(features)
+        if len(features.shape) == 1:
+            features = pca.transform(features.reshape(1, -1))
+        else:
+            features = pca.transform(features)
     else:
         pca = PCA(n_components=d, whiten=whiten, copy=copy)
         features = pca.fit_transform(features)

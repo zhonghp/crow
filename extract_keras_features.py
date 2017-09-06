@@ -1,11 +1,17 @@
 # Copyright 2015, Yahoo Inc.
 # Licensed under the terms of the Apache License, Version 2.0. See the LICENSE file associated with the project for terms.
 import os
-import caffe
+import time
+import scipy
 import numpy as np
 from PIL import Image
-import scipy
-import time
+
+import keras
+import keras.backend as K
+from keras.models import Model
+from keras.preprocessing import image
+from keras.applications.vgg16 import VGG16
+from keras.applications.imagenet_utils import preprocess_input
 
 
 ###################################
@@ -22,10 +28,7 @@ def load_img(path):
         Image object
     """
     try:
-        img = Image.open(path)
-        rgb_img = Image.new("RGB", img.size)
-        rgb_img.paste(img)
-        return rgb_img
+        return image.load_img(path)
     except:
         return None
 
@@ -40,39 +43,33 @@ def format_img_for_vgg(img):
     :returns ndarray:
         3d tensor formatted for VGG
     """
-    # Get pixel values
-    d = np.array(img, dtype=np.float32)
-    d = d[:,:,::-1]
-
-    # Subtract mean pixel values of VGG training set
-    d -= np.array((104.00698793,116.66876762,122.67891434))
-
-    return d.transpose((2,0,1))
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x = preprocess_input(x)
+    return x
 
 
-def extract_raw_features(net, layer, d):
+def extract_raw_features(model, d):
     """
     Extract raw features for a single image.
     """
-    # Shape for input (data blob is N x C x H x W)
-    net.blobs['data'].reshape(1, *d.shape)
-    net.blobs['data'].data[...] = d
-    # run net and take argmax for prediction
-    net.forward()
-    return net.blobs[layer].data[0]
+    y = model.predict(d)[0]
+    if K.image_data_format() == 'channels_last':
+      return y.transpose((2, 0, 1))
+    else:
+      return y
 
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('--images', dest='images', type=str, nargs='+', required=True, help='glob pattern to image data')
-    parser.add_argument('--layer', dest='layer', type=str, default='pool5', help='model layer to extract')
-    parser.add_argument('--prototxt', dest='prototxt', type=str, default='vgg/VGG_ILSVRC_16_pool5.prototxt', help='path to prototxt')
-    parser.add_argument('--caffemodel', dest='caffemodel', type=str, default='vgg/VGG_ILSVRC_16_layers.caffemodel', help='path to model params')
     parser.add_argument('--out', dest='out', type=str, default='', help='path to save output')
+    parser.add_argument('--gpu', dest='gpu', type=str, default='1', help='gpu id to use')
     args = parser.parse_args()
 
-    net = caffe.Net(args.prototxt, args.caffemodel, caffe.TEST)
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+    model = VGG16(weights='imagenet', include_top=False)
 
     if not os.path.exists(args.out):
         os.makedirs(args.out)
@@ -87,7 +84,7 @@ if __name__ == '__main__':
             continue
 
         d = format_img_for_vgg(img)
-        X = extract_raw_features(net, args.layer, d)
+        X = extract_raw_features(model, d)
 
         filename = os.path.splitext(os.path.basename(path))[0]
         np.save(os.path.join(args.out, filename), X)
