@@ -8,6 +8,7 @@ from PIL import Image
 
 import keras
 from keras.models import Model
+from keras.preprocessing import image
 from keras.applications.vgg16 import VGG16
 from extract_keras_features import format_img_for_vgg, extract_raw_features
 
@@ -36,7 +37,7 @@ def query_images(groundtruth_dir, image_dir, dataset, cropped=True):
 
         if dataset == 'oxford':
             img_name = img_name.replace('oxc1_', '')
-        img = Image.open(os.path.join(image_dir, '%s.jpg' % img_name))
+        img = image.load_img(os.path.join(image_dir, '%s.jpg' % img_name))
 
         if cropped:
             x, y, w, h = map(float, (x, y, w, h))
